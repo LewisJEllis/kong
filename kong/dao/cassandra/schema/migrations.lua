@@ -98,6 +98,32 @@ local Migrations = {
         DROP TABLE plugins;
       ]]
     end
+  },
+  -- Clustering nodes
+  {
+    name = "2015-11-23-175310_init_schema",
+    up = function(options)
+      return [[
+        CREATE TABLE IF NOT EXISTS nodes(
+          id uuid,
+          name text,
+          address text,
+          status text,
+          tags text, -- serialized tags
+          created_at timestamp,
+          PRIMARY KEY (id)
+        );
+
+        CREATE INDEX IF NOT EXISTS ON nodes(name);
+        CREATE INDEX IF NOT EXISTS ON nodes(address);
+        CREATE INDEX IF NOT EXISTS ON nodes(status);
+      ]]
+    end,
+    down = function(options)
+      return [[
+        DROP TABLE nodes;
+      ]]
+    end
   }
 }
 
