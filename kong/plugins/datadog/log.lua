@@ -1,6 +1,6 @@
 local lsyslog = require "lsyslog"
 local cjson = require "cjson"
-local statsd = require "statsd"
+local Statsd = require "kong.plugins.datadog.stastd"
 
 local ngx_log = ngx.log
 local ngx_timer_at = ngx.timer.at
@@ -9,33 +9,23 @@ local ngx_socket_udp = ngx.socket.udp
 
 local _M = {}
 
-local function create_statsd_message(conf, message, pri)
-  
+local function send_statsd_message(conf, message)
+local stastd = Statsd.new(conf)
+
 end
 
+
 local function log(conf, message, pri)
-  local host = conf.host
-  local port = conf.port
-  local timeout = conf.timeout
-  local statsd_message = create_statsd_message(conf, message, pri)
-  local sock = ngx_socket_udp()
-  sock:settimeout(timeout)
-
-  local ok, err = sock:setpeername(host, port)
-  if not ok then
-    ngx_log(ngx.ERR, "failed to connect to "..host..":"..tostring(port)..": ", err)
-    return
-  end
-  local ok, err = sock:send(udp_message)
-  if not ok then
-    ngx_log(ngx.ERR, "failed to send data to ".. host..":"..tostring(port)..": ", err)
-  end
-
-  local ok, err = sock:close()
-  if not ok then
-    ngx_log(ngx.ERR, "failed to close connection from "..host..":"..tostring(port)..": ", err)
-    return
-  end
+  local stastd = Statsd.new(conf)
+  local api_name = message.api.name
+  -- send size gauge
+  local stat = api_name..".request.size"
+  stastd.gauge(stat, message.request.size)
+  stat = api_name..".response.size"
+  stastd.gauge(stat, message.response.size)
+  stat = api_name..".request.count"
+  stastd.counter(stat, 1)
+  stastd.close_socket()
 end
 
 function _M.execute(conf, message)

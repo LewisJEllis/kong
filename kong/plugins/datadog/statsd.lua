@@ -1,58 +1,79 @@
 local setmetatable = setmetatable
 
-local function create_statsd_message(conf, message, pri)
-  local message = {
-    
-  }
+local function create_statsd_message(self, stat, delta, kind, sample_rate)
   
+  local rate = ""
+  if sample_rate and sample_rate ~= 1 then 
+    rate = "|@"..sample_rate 
+  end
+  
+  local message = {
+    self.namespace,
+    stat,
+    ":",
+    delta,
+    "|",
+    kind,
+    rate
+  }
+  return table.concat(message, "")
 end
 
+
 local stasd_mt = {}
-function _M:new(conf)
+function stasd_mt:new(conf)
+  
+  local sock = ngx.socket.udp()
+  sock:settimeout(conf.timeout)
+  local ok, err = sock:setpeername(conf.host, conf.port)
+  
   local stasd = {
     host = conf.host,
     port = conf.port,
+    socket = sock,
     namespace = conf.namespace
   }
   return setmetatable(stasd, stasd_mt)
 end
 
-function _M:gauge(value, sample_rate)
-  return create_statsd_message(value, "g", sample_rate)
+function stasd_mt:close_socket()
+  local ok, err = self.sock:close()
+  if not ok then
+    ngx.log(ngx.ERR, "failed to close connection from "..self.host..":"..tostring(self.port)..": ", err)
+    return
+  end
 end
 
-function _M:counter(value, sample_rate, ...)
-  return create_statsd_message(value, "c", sample_rate, ...)
+function stasd_mt:send_statsd(stat, delta, kind, sample_rate)
+  local udp_message = create_statsd_message(stat, delta, kind, sample_rate)
+  local ok, err = sock:send(udp_message)
+  if not ok then
+    ngx_log(ngx.ERR, "failed to send data to "..self.host..":"..tostring(self.port)..": ", err)
+  end
 end
 
-function _M:counter(stat, value, sample_rate)
-  return counter_(stat, value, sample_rate)
+function stasd_mt:gauge(stat, value, sample_rate)
+  return self:send_statsd(stat, value, "g", sample_rate)
 end
 
-function _M:increment(stat, value, sample_rate)
-  return counter_(stat, value or 1, sample_rate, false)
+function stasd_mt:counter(stat, value, sample_rate)
+  return self:send_statsd(stat, value, "c", sample_rate)
 end
 
-function _M:decrement(stat, value, sample_rate)
-  value = value or 1
-  if type(stat) == 'string' then value = -value end
-  return counter_(value, sample_rate, true)
+function stasd_mt:timer(stat, ms)
+  return self:send_statsd(stat, ms, "ms")
 end
 
-function _M:timer(stat, ms)
-  return create_statsd_message(stat, ms, "ms")
+function stasd_mt:histogram(stat, value)
+  return self:send_statsd(stat, value, "h")
 end
 
-function _M:histogram(stat, value)
-  return create_statsd_message(stat, value, "h")
+function stasd_mt:meter(stat, value)
+  return self:send_statsd(stat, value, "m")
 end
 
-function _M:meter(stat, value)
-  return create_statsd_message(stat, value, "m")
+function stasd_mt:set(stat, value)
+  return self:send_statsd(stat, value, "s")
 end
 
-function set(stat, value)
-  return create_statsd_message(stat, value, "s")
-end
-
-return _M
+return stasd_mt
