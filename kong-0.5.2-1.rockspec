@@ -31,8 +31,7 @@ dependencies = {
   "lrexlib-pcre ~> 2.7.2-1",
   "lua-llthreads2 ~> 0.1.3-1",
   "luacrypto >= 0.3.2-1",
-  "luasyslog >= 1.0.0-2",
-  "statsd >= 3.0.2-1"
+  "luasyslog >= 1.0.0-2"
 }
 build = {
   type = "builtin",
@@ -234,7 +233,8 @@ build = {
     
     ["kong.plugins.datadog.handler"] = "kong/plugins/datadog/handler.lua",
     ["kong.plugins.datadog.log"] = "kong/plugins/datadog/log.lua",
-    ["kong.plugins.datadog.schema"] = "kong/plugins/datadog/schema.lua"
+    ["kong.plugins.datadog.schema"] = "kong/plugins/datadog/schema.lua",
+    ["kong.plugins.datadog.statsd_logger"] = "kong/plugins/datadog/statsd_logger.lua"
     
   },
   install = {
